@@ -33,6 +33,8 @@ export class TrajectoryLogger extends Disposable implements ITrajectoryLogger {
 
 	public startTrajectory(sessionId: string, agentInfo: IAgentInfo): void {
 		let builder = this.trajectories.get(sessionId);
+		const sessionChanged = this.currentSessionId !== sessionId;
+		const isNewSession = !builder;
 		if (!builder) {
 			builder = new TrajectoryBuilder(sessionId, agentInfo);
 			this.trajectories.set(sessionId, builder);
@@ -40,7 +42,12 @@ export class TrajectoryLogger extends Disposable implements ITrajectoryLogger {
 			builder.updateAgentInfo(agentInfo);
 		}
 		this.currentSessionId = sessionId;
-		this._onDidUpdateTrajectory.fire();
+
+		// Avoid firing update events when nothing observable changed.
+		// This prevents expensive consumers from recomputing trajectories for every request-log event.
+		if (sessionChanged || isNewSession) {
+			this._onDidUpdateTrajectory.fire();
+		}
 	}
 
 	private getCurrentTrajectoryBuilder(): TrajectoryBuilder | undefined {
@@ -138,6 +145,8 @@ export class TrajectoryLogger extends Disposable implements ITrajectoryLogger {
 class TrajectoryBuilder {
 	private steps: ITrajectoryStep[] = [];
 	private stepCounter = 0;
+	private cachedTrajectory: IAgentTrajectory | undefined;
+	private isDirty = true;
 
 	constructor(
 		private readonly sessionId: string,
@@ -150,6 +159,7 @@ class TrajectoryBuilder {
 			...agentInfo,
 			tool_definitions: agentInfo.tool_definitions ?? this.agentInfo.tool_definitions
 		};
+		this.isDirty = true;
 	}
 
 	public getSessionId(): string {
@@ -163,6 +173,7 @@ class TrajectoryBuilder {
 			source: 'system',
 			message
 		});
+		this.isDirty = true;
 	}
 
 	public addUserStep(message: string, timestamp?: string): void {
@@ -172,6 +183,7 @@ class TrajectoryBuilder {
 			source: 'user',
 			message
 		});
+		this.isDirty = true;
 	}
 
 	public beginAgentStep(
@@ -194,10 +206,15 @@ class TrajectoryBuilder {
 
 		return new AgentStepContext(step, (completedStep) => {
 			this.steps.push(completedStep as ITrajectoryStep);
+			this.isDirty = true;
 		});
 	}
 
 	public build(): IAgentTrajectory {
+		if (!this.isDirty && this.cachedTrajectory) {
+			return this.cachedTrajectory;
+		}
+
 		// Infer a default model name for the trajectory if not provided at start.
 		// ATIF allows a root-level agent.model_name which step-level model_name can override.
 		let inferredModelName: string | undefined;
@@ -266,13 +283,15 @@ class TrajectoryBuilder {
 
 		const agent = inferredModelName ? { ...this.agentInfo, model_name: inferredModelName } : this.agentInfo;
 
-		return {
+		this.cachedTrajectory = {
 			schema_version: TRAJECTORY_SCHEMA_VERSION,
 			session_id: this.sessionId,
 			agent,
 			steps: [...this.steps],
 			final_metrics: finalMetrics
 		};
+		this.isDirty = false;
+		return this.cachedTrajectory;
 	}
 }
 
