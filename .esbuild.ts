@@ -410,7 +410,7 @@ async function main() {
 		]);
 
 		// Move source maps to separate directory so they're not packaged with the extension
-		await moveSourceMapsToSeparateDir();
+		// await moveSourceMapsToSeparateDir();
 	}
 }
 

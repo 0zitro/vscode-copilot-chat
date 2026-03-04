@@ -24,12 +24,12 @@ At a minimum your TODO must contain the following:
 7. Repease steps Compile, fix and tests until all tests are passing
 8. Run integration tests
 9. Repeate Compile, Fix, Test, Test integration tests until all integration tests are passing
-11. Create a summary
+10. Create a summary
 
 Follow these steps exactly:
 
 ### 1. Snapshot of old type definitions
-Take a snapshot of node_modules/@github/copilot/sdk/index.d.ts to compare against after the upghttps://github.com/microsoft/vscode/issues/291457rade.
+Take a snapshot of node_modules/@github/copilot/sdk/index.d.ts to compare against after the upgrade.
 
 ### 2. Update the package using command `npm install @github/copilot@latest`
 
