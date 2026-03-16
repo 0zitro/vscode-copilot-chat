@@ -6215,7 +6215,7 @@
 		"vscode-dts:dev": "node node_modules/@vscode/dts/index.js dev && node script/build/moveProposedDts.js",
 		"vscode-dts:main": "node node_modules/@vscode/dts/index.js main && node script/build/moveProposedDts.js",
 		"build": "node .esbuild.ts --sourcemaps",
-		"compile": "node .esbuild.ts --dev",
+		"compile": "node .esbuild.ts --dev --sourcemaps",
 		"watch": "npm-run-all -p watch:*",
 		"watch:esbuild": "node .esbuild.ts --watch --dev",
 		"watch:tsc-extension": "tsc --noEmit --watch --project tsconfig.json",
