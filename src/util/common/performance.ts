@@ -9,6 +9,12 @@ interface IMonacoPerformanceMarks {
 	clearMarks(prefix: string): void;
 }
 
+interface IMonacoPerformanceMarksLike {
+	mark?: IMonacoPerformanceMarks['mark'];
+	getMarks?: IMonacoPerformanceMarks['getMarks'];
+	clearMarks?: IMonacoPerformanceMarks['clearMarks'];
+}
+
 function _getNativePolyfill(): IMonacoPerformanceMarks {
 	return {
 		mark: (name, markOptions) => performance.mark(name, markOptions),
@@ -20,6 +26,9 @@ function _getNativePolyfill(): IMonacoPerformanceMarks {
 					toRemove.add(entry.name);
 				}
 			}
+			if (typeof performance.clearMarks !== 'function') {
+				return;
+			}
 			for (const name of toRemove) {
 				performance.clearMarks(name);
 			}
@@ -27,7 +36,40 @@ function _getNativePolyfill(): IMonacoPerformanceMarks {
 	};
 }
 
-const perf: IMonacoPerformanceMarks = (globalThis as { MonacoPerformanceMarks?: IMonacoPerformanceMarks }).MonacoPerformanceMarks ?? _getNativePolyfill();
+function _getMonacoPerformanceMarks(): IMonacoPerformanceMarks | undefined {
+	const monacoPerf = (globalThis as { MonacoPerformanceMarks?: IMonacoPerformanceMarksLike }).MonacoPerformanceMarks;
+	if (!monacoPerf || typeof monacoPerf.mark !== 'function' || typeof monacoPerf.getMarks !== 'function') {
+		return undefined;
+	}
+
+	return {
+		mark: (name, markOptions) => monacoPerf.mark!(name, markOptions),
+		getMarks: () => monacoPerf.getMarks!(),
+		clearMarks: prefix => {
+			if (typeof monacoPerf.clearMarks === 'function') {
+				monacoPerf.clearMarks(prefix);
+				return;
+			}
+
+			const toRemove = new Set<string>();
+			for (const entry of monacoPerf.getMarks!()) {
+				if (entry.name.startsWith(prefix)) {
+					toRemove.add(entry.name);
+				}
+			}
+
+			if (typeof performance.clearMarks !== 'function') {
+				return;
+			}
+
+			for (const name of toRemove) {
+				performance.clearMarks(name);
+			}
+		},
+	};
+}
+
+const perf: IMonacoPerformanceMarks = _getMonacoPerformanceMarks() ?? _getNativePolyfill();
 
 const chatExtPrefix = 'code/chat/ext/';
 
